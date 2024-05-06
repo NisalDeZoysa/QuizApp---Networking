@@ -22,7 +22,7 @@ public class ClientHandler implements Runnable {
             this.clientUserName = bufferedReader.readLine();
             clientHandlers.add(this);
 
-            broadcastMessage("SERVER: " + clientUserName + " Has Entered the chat!");
+            broadcastMessage("QuizMaster: " + clientUserName + " Has Entered the chat!");
 
         } catch (IOException e) {
             closeEverything(socket,bufferedReader,bufferedWriter);
@@ -63,7 +63,7 @@ public class ClientHandler implements Runnable {
 
     public void removeClientHandler() {
         clientHandlers.remove(this);
-        broadcastMessage("SERVER: "+clientUserName+" has left the chat");
+        broadcastMessage("QuizMaster: "+clientUserName+" has left the chat");
     }
 
 
