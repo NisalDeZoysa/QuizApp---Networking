@@ -46,6 +46,23 @@ public class ClientHandler implements Runnable {
         }
     }
 
+    /*
+    @Override
+    public void run() {
+        String fromClient;
+        try {
+            while (socket.isConnected()) {
+                fromClient = bufferedReader.readLine();
+                if (fromClient != null) {
+                    server.receiveAnswer(fromClient, clientUserName); // Process answers
+                }
+            }
+        } catch (IOException e) {
+            closeEverything(socket, bufferedReader, bufferedWriter);
+        }
+    }
+    * */
+
     public void broadcastMessage(String messageToSend){
 
         for (ClientHandler clientHandler: clientHandlers){
@@ -86,5 +103,28 @@ public class ClientHandler implements Runnable {
             e.printStackTrace();
         }
     }
+
+
+    /*
+    public void sendQuestion(String question) {
+        try {
+            bufferedWriter.write(question);
+            bufferedWriter.newLine();
+            bufferedWriter.flush();
+        } catch (IOException e) {
+            closeEverything(socket, bufferedReader, bufferedWriter);
+        }
+    }
+
+    public void sendWinner(String winner) {
+        try {
+            bufferedWriter.write("Winner is: " + winner);
+            bufferedWriter.newLine();
+            bufferedWriter.flush();
+        } catch (IOException e) {
+            closeEverything(socket, bufferedReader, bufferedWriter);
+        }
+    }
+     */
 
 }

@@ -10,6 +10,15 @@ public class Server {
         this.serverSocket = serverSocket;
     }
 
+    /*
+    * // Add quiz questions and scoring system
+    private Map<String, Integer> scores = new HashMap<>();
+    private String[] questions = {"Question 1: 3 + 2 = ?", "Question 2: Capital of France?", "Question 3: 2 * 2 = ?"};
+    private String[] answers = {"5", "Paris", "4"};
+    private int currentQuestion = -1;
+    *
+    * */
+
     public void startServer(){
 
         try{
@@ -20,6 +29,7 @@ public class Server {
                 Socket socket =  serverSocket.accept();  // block the whole programme until client connects
 
                 ClientHandler clientHandler = new ClientHandler(socket);
+                // ClientHandler clientHandler = new ClientHandler(socket, this);
 
                 Thread thread = new Thread(clientHandler);
                 thread.start();
@@ -30,6 +40,39 @@ public class Server {
 
         }
     }
+
+
+    /*
+    * // Modify broadcastMessage to send quiz questions
+    synchronized void broadcastQuestion() {
+        if (currentQuestion + 1 < questions.length) {
+            currentQuestion++;
+            for (ClientHandler clientHandler : ClientHandler.clientHandlers) {
+                clientHandler.sendQuestion(questions[currentQuestion]);
+            }
+        } else {
+            announceWinner();
+        }
+    }
+    *
+    *
+    synchronized void receiveAnswer(String answer, String username) {
+        if (answers[currentQuestion].equalsIgnoreCase(answer.trim()) && currentQuestion != -1) {
+            int newScore = scores.getOrDefault(username, 0) + 1;
+            scores.put(username, newScore);
+        }
+        broadcastQuestion();
+    }
+
+    void announceWinner() {
+        String winner = scores.entrySet().stream().max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse("No winner!");
+        for (ClientHandler clientHandler : ClientHandler.clientHandlers) {
+            clientHandler.sendWinner(winner);
+        }
+    }
+    *
+    *
+    * */
 
     public void closeServerSocket() {
         try {
