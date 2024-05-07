@@ -1,103 +1,52 @@
 import java.io.*;
-import java.net.Socket;
-import java.util.Scanner;
+import java.net.*;
 
 public class Client {
-
     private Socket socket;
-    private BufferedReader bufferedReader;
-    private BufferedWriter bufferedWriter;
-    private String username;
+    private BufferedReader reader;
+    private PrintWriter writer;
 
-
-    public Client(Socket socket, String username){
-
+    public Client() {
         try {
+            socket = new Socket("localhost", 6060);
+            reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            writer = new PrintWriter(socket.getOutputStream(), true);
 
-            this.socket = socket;
+            new Thread(this::readMessages).start();
 
-            this.bufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-
-            this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-
-            this.username = username;
-
-        } catch (IOException e){
-            closeEverything(socket, bufferedWriter, bufferedReader);
+            BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));
+            while (true) {
+                String input = userInput.readLine();
+                writer.println(input);
+            }
+        } catch (IOException e) {
+            closeEverything();
         }
     }
 
-    public  void sendMessage() {
+    private void readMessages() {
         try {
-            bufferedWriter.write(username);
-            bufferedWriter.newLine();
-            bufferedWriter.flush();
-
-            Scanner scanner = new Scanner(System.in);
-
-            while(socket.isConnected()) {
-                String messageToSend = scanner.nextLine();
-                bufferedWriter.write(username + ": " + messageToSend);
-                bufferedWriter.newLine();
-                bufferedWriter.flush();
+            String message;
+            while ((message = reader.readLine()) != null) {
+                System.out.println(message);
             }
-        } catch (IOException e){
-            closeEverything(socket, bufferedWriter, bufferedReader);
+        } catch (IOException e) {
+            closeEverything();
         }
     }
 
-    public void listenForMessage() {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                String msgFromGroupChat;
-
-                while (socket.isConnected()) {
-                    try {
-                        msgFromGroupChat = bufferedReader.readLine();
-                        System.out.println(msgFromGroupChat);
-
-                    } catch (IOException e){
-                        closeEverything(socket,bufferedWriter,bufferedReader);
-                    }
-                }
-            }
-        }).start();
-    }
-
-
-    public void closeEverything(Socket socket, BufferedWriter bufferedWriter, BufferedReader bufferedReader) {
-
+    private void closeEverything() {
         try {
-            if (bufferedReader != null){
-                bufferedReader.close();
-            }
-
-            if (bufferedWriter != null){
-                bufferedWriter.close();
-            }
-
-            if (socket != null){
-                socket.close();
-            }
-        } catch (IOException e){
+            if (reader != null) reader.close();
+            if (writer != null) writer.close();
+            if (socket != null) socket.close();
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    public static void main(String[] args) throws IOException {
-        Scanner scanner = new Scanner(System.in);
-
-        System.out.println("Enter your Username to Make a way to Quizapp: ");
-        String username = scanner.nextLine();
-
-        Socket socket = new Socket("localhost",6060);
-
-        Client client = new Client(socket,username);
-
-        client.listenForMessage(); // blocking methods
-        client.sendMessage();  //blocking methods calls for infinty whiles
-
+    public static void main(String[] args) {
+        new Client();
     }
-
 }
+

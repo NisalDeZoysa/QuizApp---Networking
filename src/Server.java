@@ -1,98 +1,104 @@
-import java.io.IOException;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.io.*;
+import java.net.*;
+import java.util.concurrent.*;
+import java.util.*;
 
 public class Server {
-
+    private static final int PORT = 6060;
     private ServerSocket serverSocket;
+    private final ConcurrentHashMap<String, ClientHandler> clients = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Integer> scores = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Integer> answersGiven = new ConcurrentHashMap<>();
+    private final String[] questions = {"What is 1+1?", "What is the capital of France?", "What is 2*2?"};
+    private final String[] answers = {"2", "Paris", "4"};
 
-    public Server(ServerSocket serverSocket){
-        this.serverSocket = serverSocket;
+    public Server() throws IOException {
+        serverSocket = new ServerSocket(PORT);
+        System.out.println("Server started on port " + PORT);
     }
 
-    /*
-    * // Add quiz questions and scoring system
-    private Map<String, Integer> scores = new HashMap<>();
-    private String[] questions = {"Question 1: 3 + 2 = ?", "Question 2: Capital of France?", "Question 3: 2 * 2 = ?"};
-    private String[] answers = {"5", "Paris", "4"};
-    private int currentQuestion = -1;
-    *
-    * */
-
-    public void startServer(){
-
-        try{
-
-            while (!serverSocket.isClosed()){
-
-                // if accept is true it is return socket socket object returen that can use to communicate with client
-                Socket socket =  serverSocket.accept();  // block the whole programme until client connects
-
-                ClientHandler clientHandler = new ClientHandler(socket);
-                // ClientHandler clientHandler = new ClientHandler(socket, this);
-
-                Thread thread = new Thread(clientHandler);
-                thread.start();
-
+    public void acceptClients() {
+        System.out.println("Accepting clients...");
+        try {
+            while (!serverSocket.isClosed()) {
+                Socket socket = serverSocket.accept();
+                new Thread(new ClientHandler(socket, this)).start();
             }
-
         } catch (IOException e) {
-
+            System.out.println("Server exception: " + e.getMessage());
         }
     }
 
+    public synchronized void addClient(String username, ClientHandler clientHandler) {
+        clients.put(username, clientHandler);
+        scores.put(username, 0);
+        answersGiven.put(username, 0);
+        clientHandler.sendQuestion(questions[0]);  // Send the first question to the client immediately upon joining.
+    }
 
-    /*
-    * // Modify broadcastMessage to send quiz questions
-    synchronized void broadcastQuestion() {
-        if (currentQuestion + 1 < questions.length) {
-            currentQuestion++;
-            for (ClientHandler clientHandler : ClientHandler.clientHandlers) {
-                clientHandler.sendQuestion(questions[currentQuestion]);
-            }
+    public synchronized void removeClient(String username) {
+        if (clients.containsKey(username)) {
+            clients.remove(username);
+            scores.remove(username);
+            answersGiven.remove(username);
+            System.out.println(username + " has left the quiz.");
+            checkIfAllDone(); // Check if all have done when a user leaves to handle sudden disconnects.
+        }
+    }
+
+    public synchronized void receiveAnswer(String answer, String username, ClientHandler handler) {
+        int questionIndex = answersGiven.get(username);
+        if (answers[questionIndex].equalsIgnoreCase(answer.trim())) {
+            int newScore = scores.get(username) + 1;
+            scores.put(username, newScore);
+            handler.sendMessage("Correct answer. Your score: " + newScore);
         } else {
+            handler.sendMessage("Wrong answer.");
+        }
+
+        if (questionIndex < questions.length - 1) {
+            answersGiven.put(username, questionIndex + 1);
+            handler.sendQuestion(questions[questionIndex + 1]);
+        } else {
+            handler.sendMessage("You have completed the quiz.");
+            answersGiven.put(username, questions.length); // Mark that this client is done
+            checkIfAllDone(); // Check after marking the client as done
+        }
+    }
+
+    private void checkIfAllDone() {
+        boolean allDone = answersGiven.values().stream().allMatch(count -> count >= questions.length);
+        if (allDone) {
             announceWinner();
         }
     }
-    *
-    *
-    synchronized void receiveAnswer(String answer, String username) {
-        if (answers[currentQuestion].equalsIgnoreCase(answer.trim()) && currentQuestion != -1) {
-            int newScore = scores.getOrDefault(username, 0) + 1;
-            scores.put(username, newScore);
-        }
-        broadcastQuestion();
+
+    private void announceWinner() {
+        Optional<Map.Entry<String, Integer>> maxEntry = scores.entrySet()
+                .stream()
+                .max(Map.Entry.comparingByValue());
+
+        String winnerMessage = maxEntry.map(entry -> "Winner is: " + entry.getKey() + " with a score of: " + entry.getValue())
+                .orElse("No winner.");
+
+        broadcastMessage(winnerMessage);
     }
 
-    void announceWinner() {
-        String winner = scores.entrySet().stream().max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse("No winner!");
-        for (ClientHandler clientHandler : ClientHandler.clientHandlers) {
-            clientHandler.sendWinner(winner);
-        }
+    private void broadcastMessage(String message) {
+        clients.values().forEach(client -> client.sendMessage(message));
     }
-    *
-    *
-    * */
 
-    public void closeServerSocket() {
+    private void closeServer() {
         try {
-            if (serverSocket != null){
-                serverSocket.close();
-            }
-        } catch (IOException e){
-            e.printStackTrace();
+            serverSocket.close();
+            System.out.println("Server closed after announcing the winner.");
+        } catch (IOException e) {
+            System.out.println("Error closing the server: " + e.getMessage());
         }
     }
 
     public static void main(String[] args) throws IOException {
-
-        ServerSocket serverSocket = new ServerSocket(6060);
-
-        Server server = new Server(serverSocket);
-        server.startServer();
-
-
+        Server server = new Server();
+        server.acceptClients();
     }
-
-
 }

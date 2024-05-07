@@ -1,130 +1,49 @@
 import java.io.*;
-import java.net.Socket;
-import java.util.ArrayList;
+import java.net.*;
 
 public class ClientHandler implements Runnable {
-
-    public static ArrayList<ClientHandler> clientHandlers = new ArrayList<>(); // helps to broadcast msg to everyone
-
     private Socket socket;
-    private BufferedReader bufferedReader;
-    private BufferedWriter bufferedWriter;
-    private String clientUserName;
+    private BufferedReader reader;
+    private PrintWriter writer;
+    private Server server;
+    private String username; // Declare username at a higher scope
 
-    public ClientHandler (Socket socket) {
+    public ClientHandler(Socket socket, Server server) {
+        this.socket = socket;
+        this.server = server;
         try {
-            this.socket = socket;
-
-            this.bufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-
-            this.bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-
-            this.clientUserName = bufferedReader.readLine();
-            clientHandlers.add(this);
-
-            broadcastMessage("QuizMaster: " + clientUserName + " Has Entered the chat!");
-
+            InputStream input = socket.getInputStream();
+            OutputStream output = socket.getOutputStream();
+            reader = new BufferedReader(new InputStreamReader(input));
+            writer = new PrintWriter(output, true);
         } catch (IOException e) {
-            closeEverything(socket,bufferedReader,bufferedWriter);
-        }
-    }
-
-    @Override
-    public void run() {
-
-        String messageFromClient;
-
-        while(socket.isConnected()) {
-
-            try{
-                messageFromClient = bufferedReader.readLine(); //This is blocking the code. thats why we are using separate thread here
-                broadcastMessage(messageFromClient);
-            } catch (IOException e){
-                closeEverything(socket,bufferedReader,bufferedWriter);
-                break;
-            }
-        }
-    }
-
-    /*
-    @Override
-    public void run() {
-        String fromClient;
-        try {
-            while (socket.isConnected()) {
-                fromClient = bufferedReader.readLine();
-                if (fromClient != null) {
-                    server.receiveAnswer(fromClient, clientUserName); // Process answers
-                }
-            }
-        } catch (IOException e) {
-            closeEverything(socket, bufferedReader, bufferedWriter);
-        }
-    }
-    * */
-
-    public void broadcastMessage(String messageToSend){
-
-        for (ClientHandler clientHandler: clientHandlers){
-            try{
-                if(!clientHandler.clientUserName.equals(clientUserName)){
-                    clientHandler.bufferedWriter.write(messageToSend);
-                    clientHandler.bufferedWriter.newLine();
-                    clientHandler.bufferedWriter.flush();
-                }
-            } catch (IOException e) {
-                closeEverything(socket,bufferedReader,bufferedWriter);
-            }
-        }
-    }
-
-    public void removeClientHandler() {
-        clientHandlers.remove(this);
-        broadcastMessage("QuizMaster: "+clientUserName+" has left the chat");
-    }
-
-
-    public void closeEverything(Socket socket , BufferedReader bufferedReader, BufferedWriter bufferedWriter){
-        removeClientHandler();
-
-        try {
-            if (bufferedReader != null){
-                bufferedReader.close();
-            }
-
-            if (bufferedWriter != null){
-                bufferedWriter.close();
-            }
-
-            if (socket != null){
-                socket.close();
-            }
-        } catch (IOException e){
             e.printStackTrace();
         }
     }
 
+    @Override
+    public void run() {
+        try {
+            writer.println("Enter your Username to join the Quiz:");
+            username = reader.readLine().trim(); // Initialize username here
+            server.addClient(username, this);
 
-    /*
+            String inputLine;
+            while ((inputLine = reader.readLine()) != null) {
+                server.receiveAnswer(inputLine, username, this);
+            }
+        } catch (IOException e) {
+            System.out.println("Error handling client: " + e.getMessage());
+        } finally {
+            server.removeClient(username); // Properly handle the removal
+        }
+    }
+
     public void sendQuestion(String question) {
-        try {
-            bufferedWriter.write(question);
-            bufferedWriter.newLine();
-            bufferedWriter.flush();
-        } catch (IOException e) {
-            closeEverything(socket, bufferedReader, bufferedWriter);
-        }
+        writer.println(question);
     }
 
-    public void sendWinner(String winner) {
-        try {
-            bufferedWriter.write("Winner is: " + winner);
-            bufferedWriter.newLine();
-            bufferedWriter.flush();
-        } catch (IOException e) {
-            closeEverything(socket, bufferedReader, bufferedWriter);
-        }
+    public void sendMessage(String message) {
+        writer.println(message);
     }
-     */
-
 }
